@@ -22,81 +22,64 @@ package com.github.shadowsocks
 
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.preference.EditTextPreference
 import androidx.preference.Preference
+import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreference
-import com.github.shadowsocks.App.Companion.app
 import com.github.shadowsocks.bg.BaseService
 import com.github.shadowsocks.preference.DataStore
+import com.github.shadowsocks.preference.EditTextPreferenceModifiers
 import com.github.shadowsocks.utils.DirectBoot
 import com.github.shadowsocks.utils.Key
-import com.github.shadowsocks.utils.TcpFastOpen
-import com.takisoft.preferencex.PreferenceFragmentCompat
+import com.github.shadowsocks.utils.remove
+import com.github.shadowsocks.widget.MainListListener
 
 class GlobalSettingsPreferenceFragment : PreferenceFragmentCompat() {
-    override fun onCreatePreferencesFix(savedInstanceState: Bundle?, rootKey: String?) {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceManager.preferenceDataStore = DataStore.publicStore
         DataStore.initGlobal()
         addPreferencesFromResource(R.xml.pref_global)
-        val boot = findPreference(Key.isAutoConnect) as SwitchPreference
-        boot.setOnPreferenceChangeListener { _, value ->
+        findPreference<SwitchPreference>(Key.persistAcrossReboot)!!.setOnPreferenceChangeListener { _, value ->
             BootReceiver.enabled = value as Boolean
             true
         }
-        boot.isChecked = BootReceiver.enabled
 
-        val canToggleLocked = findPreference(Key.directBootAware)
+        val canToggleLocked = findPreference<Preference>(Key.directBootAware)!!
         if (Build.VERSION.SDK_INT >= 24) canToggleLocked.setOnPreferenceChangeListener { _, newValue ->
-            if (app.directBootSupported && newValue as Boolean) DirectBoot.update() else DirectBoot.clean()
+            if (Core.directBootSupported && newValue as Boolean) DirectBoot.update() else DirectBoot.clean()
             true
-        } else canToggleLocked.parent!!.removePreference(canToggleLocked)
+        } else canToggleLocked.remove()
 
-        val tfo = findPreference(Key.tfo) as SwitchPreference
-        tfo.isChecked = DataStore.tcpFastOpen
-        tfo.setOnPreferenceChangeListener { _, value ->
-            if (value as Boolean) {
-                val result = TcpFastOpen.enabled(true)
-                if (result != null && result != "Success.") (activity as MainActivity).snackbar(result).show()
-                TcpFastOpen.sendEnabled
-            } else true
-        }
-        if (!TcpFastOpen.supported) {
-            tfo.isEnabled = false
-            tfo.summary = getString(R.string.tcp_fastopen_summary_unsupported, System.getProperty("os.version"))
-        }
-
-        val serviceMode = findPreference(Key.serviceMode)
-        val portProxy = findPreference(Key.portProxy)
-        val portLocalDns = findPreference(Key.portLocalDns)
-        val portTransproxy = findPreference(Key.portTransproxy)
+        val serviceMode = findPreference<Preference>(Key.serviceMode)!!
+        val portProxy = findPreference<EditTextPreference>(Key.portProxy)!!
+        portProxy.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
+        val portLocalDns = findPreference<EditTextPreference>(Key.portLocalDns)!!
+        portLocalDns.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
+        val portTransproxy = findPreference<EditTextPreference>(Key.portTransproxy)!!
+        portTransproxy.setOnBindEditTextListener(EditTextPreferenceModifiers.Port)
         val onServiceModeChange = Preference.OnPreferenceChangeListener { _, newValue ->
-            val (enabledLocalDns, enabledTransproxy) = when (newValue as String?) {
-                Key.modeProxy -> Pair(false, false)
-                Key.modeVpn -> Pair(true, false)
-                Key.modeTransproxy -> Pair(true, true)
-                else -> throw IllegalArgumentException("newValue: $newValue")
-            }
-            portLocalDns.isEnabled = enabledLocalDns
-            portTransproxy.isEnabled = enabledTransproxy
+            portTransproxy.isEnabled = newValue as String? == Key.modeTransproxy
             true
         }
-        val listener: (Int) -> Unit = {
-            when (it) {
-                BaseService.IDLE, BaseService.STOPPED -> {
-                    serviceMode.isEnabled = true
-                    portProxy.isEnabled = true
-                    onServiceModeChange.onPreferenceChange(null, DataStore.serviceMode)
-                }
-                else -> {
-                    serviceMode.isEnabled = false
-                    portProxy.isEnabled = false
-                    portLocalDns.isEnabled = false
-                    portTransproxy.isEnabled = false
-                }
+        val listener: (BaseService.State) -> Unit = {
+            val stopped = it == BaseService.State.Stopped
+            serviceMode.isEnabled = stopped
+            portProxy.isEnabled = stopped
+            portLocalDns.isEnabled = stopped
+            if (stopped) onServiceModeChange.onPreferenceChange(null, DataStore.serviceMode) else {
+                portTransproxy.isEnabled = false
             }
         }
         listener((activity as MainActivity).state)
         MainActivity.stateListener = listener
         serviceMode.onPreferenceChangeListener = onServiceModeChange
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        ViewCompat.setOnApplyWindowInsetsListener(listView, MainListListener)
     }
 
     override fun onDestroy() {

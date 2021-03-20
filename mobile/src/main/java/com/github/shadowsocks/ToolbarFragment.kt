@@ -26,11 +26,8 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 
-/**
- * @author Mygod
- */
 open class ToolbarFragment : Fragment() {
-    protected lateinit var toolbar: Toolbar
+    lateinit var toolbar: Toolbar
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -38,8 +35,6 @@ open class ToolbarFragment : Fragment() {
         toolbar.setNavigationIcon(R.drawable.ic_navigation_menu)
         toolbar.setNavigationOnClickListener { (activity as MainActivity).drawer.openDrawer(GravityCompat.START) }
     }
-
-    open fun onTrafficUpdated(profileId: Long, txRate: Long, rxRate: Long, txTotal: Long, rxTotal: Long) { }
 
     open fun onBackPressed(): Boolean = false
 }

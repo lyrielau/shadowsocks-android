@@ -24,6 +24,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.ViewCompat
+import com.github.shadowsocks.widget.ListHolderListener
 
 class GlobalSettingsFragment : ToolbarFragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? =
@@ -31,11 +33,7 @@ class GlobalSettingsFragment : ToolbarFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        ViewCompat.setOnApplyWindowInsetsListener(view, ListHolderListener)
         toolbar.setTitle(R.string.settings)
-
-        if (savedInstanceState != null) return
-        val fm = childFragmentManager
-        fm.beginTransaction().replace(R.id.content, GlobalSettingsPreferenceFragment()).commit()
-        fm.executePendingTransactions()
     }
 }

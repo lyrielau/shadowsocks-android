@@ -30,6 +30,7 @@ import android.widget.CheckedTextView
 import android.widget.Switch
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -37,6 +38,8 @@ import com.github.shadowsocks.R
 import com.github.shadowsocks.database.Profile
 import com.github.shadowsocks.database.ProfileManager
 import com.github.shadowsocks.utils.resolveResourceId
+import com.github.shadowsocks.widget.ListHolderListener
+import com.github.shadowsocks.widget.ListListener
 
 class ConfigActivity : AppCompatActivity() {
     inner class ProfileViewHolder(view: View) : RecyclerView.ViewHolder(view), View.OnClickListener {
@@ -69,7 +72,7 @@ class ConfigActivity : AppCompatActivity() {
     }
 
     inner class ProfilesAdapter : RecyclerView.Adapter<ProfileViewHolder>() {
-        internal val profiles = ProfileManager.getAllProfiles()?.toMutableList() ?: mutableListOf()
+        internal val profiles = ProfileManager.getActiveProfiles()?.toMutableList() ?: mutableListOf()
 
         override fun onBindViewHolder(holder: ProfileViewHolder, position: Int) =
                 if (position == 0) holder.bindDefault() else holder.bind(profiles[position - 1])
@@ -92,6 +95,7 @@ class ConfigActivity : AppCompatActivity() {
         }
         taskerOption = Settings.fromIntent(intent)
         setContentView(R.layout.layout_tasker)
+        ListHolderListener.setup(this)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         toolbar.setTitle(R.string.app_name)
@@ -100,12 +104,15 @@ class ConfigActivity : AppCompatActivity() {
 
         switch = findViewById(R.id.serviceSwitch)
         switch.isChecked = taskerOption.switchOn
-        val profilesList = findViewById<RecyclerView>(R.id.list)
-        val lm = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        profilesList.layoutManager = lm
-        profilesList.itemAnimator = DefaultItemAnimator()
-        profilesList.adapter = profilesAdapter
-        if (taskerOption.profileId >= 0)
-            lm.scrollToPosition(profilesAdapter.profiles.indexOfFirst { it.id == taskerOption.profileId } + 1)
+        findViewById<RecyclerView>(R.id.list).apply {
+            ViewCompat.setOnApplyWindowInsetsListener(this, ListListener)
+            itemAnimator = DefaultItemAnimator()
+            adapter = profilesAdapter
+            layoutManager = LinearLayoutManager(this@ConfigActivity, RecyclerView.VERTICAL, false).apply {
+                if (taskerOption.profileId >= 0) {
+                    scrollToPosition(profilesAdapter.profiles.indexOfFirst { it.id == taskerOption.profileId } + 1)
+                }
+            }
+        }
     }
 }
